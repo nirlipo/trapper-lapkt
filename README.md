@@ -6,7 +6,7 @@ You first need to install LAPKT by following this instructions: http://lapkt.org
 
 Yoy also need to define LAPKT_PATH as an enviromnent variable. Add the following line to your .bash or .profile file or simply execute it in your terminal:
 ```
-  export LAPKT_PATH = /home/nirlipo/Sandboxes/LAPKT-public
+  export LAPKT_PATH = /Absolute-path-to-LAPKT-folder
 ```
 Trapper can run using either FF or FD parser.
 
