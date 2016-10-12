@@ -27,6 +27,25 @@
 #include "mega_trap.hxx"
 #include "h_lmcut.hxx"
 
+/**
+ * Dependencies for DFS+ satisficing Planner
+ */
+#include <novelty.hxx>
+#include <novelty_partition.hxx>
+#include <rp_heuristic.hxx>
+#include <landmark_graph.hxx>
+#include <landmark_graph_generator.hxx>
+
+#include "rp_iw_trapper.hxx"
+#include "serialized_search_trapper.hxx"
+#include "dfs_plus_trapper.hxx"
+
+
+
+/**
+* Other Defs for BRFS,and A*(Lm-cut)
+*/
+
 namespace po = boost::program_options;
 
 using   aptk::STRIPS_Problem;
@@ -50,9 +69,36 @@ typedef		LMCUT_Heuristic<Fwd_Search_Problem, H_Max_Evaluation_Function>	H_lmcut_
 typedef		AT_BFS_SQ_SH< Fwd_Search_Problem, H_lmcut_Fwd, BFS_Open_List >	BFS_H_Lmcut_Fwd;
 
 
+
 typedef  Closed_Partial_State< PartialState >           Closed_List;
 
 using    aptk::agnostic::Fwd_Search_Problem;
+
+
+/**
+* Definitions for DFS+
+*/
+
+using	aptk::agnostic::H_Add_Evaluation_Function;
+using	aptk::agnostic::Relaxed_Plan_Heuristic;
+using 	aptk::agnostic::Landmarks_Graph_Generator;
+using 	aptk::agnostic::Landmarks_Graph;
+
+using 	aptk::agnostic::Novelty;
+using 	aptk::agnostic::Novelty_Partition;
+using	aptk::search::novelty_spaces::RP_IW;
+using	aptk::search::novelty_spaces::DFS_Plus;
+using	aptk::search::Serialized_Search;
+
+typedef		aptk::search::novelty_spaces::Node< aptk::State >	        IW_Node;
+typedef         Novelty_Partition<Fwd_Search_Problem, IW_Node>                  H_Novel_Fwd;
+typedef         Landmarks_Graph_Generator<Fwd_Search_Problem>                   Gen_Lms_Fwd;
+
+typedef		H1_Heuristic<Fwd_Search_Problem, H_Add_Evaluation_Function>	H_Add_Fwd; 
+typedef		Relaxed_Plan_Heuristic< Fwd_Search_Problem, H_Add_Fwd >		H_Add_Rp_Fwd;
+
+typedef		RP_IW< Fwd_Search_Problem, H_Novel_Fwd, H_Add_Rp_Fwd >	        RP_IW_Fwd;
+typedef		DFS_Plus< Fwd_Search_Problem, RP_IW_Fwd, IW_Node >              DFS_Plus_Fwd;
 
 
 std::string m_log_filename("de.log");
@@ -69,7 +115,7 @@ void process_command_line_options( int ac, char** av, po::variables_map& vars ) 
     ( "help", "Show help message" )
     ( "domain", po::value<std::string>(), "Input PDDL domain description" )
     ( "problem", po::value<std::string>(), "Input PDDL problem description" )
-    ( "search", po::value<std::string>(), "brfs_stats, brfs_trap, astar_trap" )
+    ( "search", po::value<std::string>(), "brfs_stats, brfs_trap, astar_trap, dfs+_trap" )
     ( "candidates", po::value<std::string>(), "a1, a2, a3" )
     ;
 
@@ -528,6 +574,29 @@ int main( int argc, char** argv ) {
 	    std::cout<< brfs_t;
     }
 
+    //DFS+ using Traps
+    if (m_search_alg.compare("dfs+_trap") == 0) {
+
+	    Gen_Lms_Fwd    gen_lms( search_prob );
+	    Landmarks_Graph graph( prob );
+	    
+	    gen_lms.set_only_goals( true );
+	    gen_lms.compute_lm_graph_set_additive( graph );
+	    
+	    std::cout << "Serializing #Goals: " << graph.num_landmarks() << std::endl;
+	    
+	    
+	    std::cout << "Starting search with DFS..." << std::endl;
+	    
+	    DFS_Plus_Fwd dfs_engine( search_prob, psc );
+	    dfs_engine.set_goal_agenda( &graph );
+	    dfs_engine.set_bound(2);
+	    
+	    std::string log_dfs = "dfs.log";	
+	    float dfs_t = do_search( dfs_engine, prob, 0.0f, log_dfs );
+	    
+	    std::cout << "DFS+ search completed in " << dfs_t << " secs, check '" << m_log_filename << "' for details" << std::endl;
+    }  
 
     return 0;
 
